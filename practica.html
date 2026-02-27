@@ -11,6 +11,7 @@
             --text-color: #e0e0e0;
             --highlight: #4CAF50;
             --error: #E02341;
+            --quiz-select: #2196F3;
         }
 
         body {
@@ -98,7 +99,7 @@
             margin-top: 15px;
         }
 
-        /* El Círculo */
+        /* El Círculo (Recreado con código para uniformidad y autonomía) */
         .circle-wrapper {
             position: relative;
             width: 320px;
@@ -106,6 +107,9 @@
             border-radius: 50%;
             border: 2px dashed #444;
             margin: 20px 0;
+            /* SVG de fondo que recrea el diseño original */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="none" stroke="%23333" stroke-width="0.5" stroke-dasharray="2 2"/></svg>');
+            background-size: cover;
         }
 
         .note {
@@ -120,10 +124,17 @@
             font-weight: bold;
             color: white;
             cursor: pointer;
-            background-color: #333;
-            border: 2px solid transparent;
-            transition: opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+            /* Diseño uniforme: Círculos negros definidos */
+            background-color: #000;
+            border: 2px solid #fff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            transition: opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
             -webkit-tap-highlight-color: transparent;
+            /* Centrado matemático inicial */
+            left: 50%;
+            top: 50%;
+            margin-left: -25px;
+            margin-top: -25px;
         }
 
         /* Estados visuales */
@@ -134,7 +145,7 @@
             opacity: 1;
         }
         .note.quiz-selected {
-            background-color: #2196F3;
+            background-color: var(--quiz-select);
             box-shadow: 0 0 15px rgba(33, 150, 243, 0.6);
             opacity: 1;
         }
@@ -191,8 +202,10 @@
 
     <script>
         // --- DATOS DEL CÍRCULO ---
+        // Índices: 0=C, 1=G, 2=D, 3=A, 4=E, 5=B, 6=Gb/F#, 7=Db, 8=Ab, 9=Eb, 10=Bb, 11=F
         const notesNeutral = ['C', 'G', 'D', 'A', 'E', 'B', 'F#/Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
         
+        // Base de datos de armaduras: De -7 (Bemoles) a +7 (Sostenidos)
         const keySignatures = {
             "-7": { rootObj: "Cb Mayor", rootIdx: 5, notes: ["Cb", "Db", "Eb", "Fb", "Gb", "Ab", "Bb"] },
             "-6": { rootObj: "Gb Mayor", rootIdx: 6, notes: ["Gb", "Ab", "Bb", "Cb", "Db", "Eb", "F"] },
@@ -212,10 +225,10 @@
         };
 
         // --- ESTADO ---
-        let mode = 'study'; 
+        let mode = 'study'; // 'study' o 'quiz'
         let currentStudyValue = "0";
-        let quizTargetAccidentals = null; 
-        let quizSelectedIndices = []; 
+        let quizTargetAccidentals = null; // El reto actual (ej. "3")
+        let quizSelectedIndices = []; // Las notas que el usuario ha tocado en el quiz
 
         // --- DOM ---
         const circleContainer = document.getElementById('circle');
@@ -233,19 +246,20 @@
         // --- INICIALIZAR CÍRCULO CON POSICIONES ABSOLUTAS ---
         function initCircle() {
             circleContainer.innerHTML = '';
-            const radius = 135; 
-            const centerX = 160; 
-            const centerY = 160; 
+            const radius = 135; // Distancia desde el centro (ligeramente ajustado para estética)
+            const centerX = 160; // Mitad de 320px
+            const centerY = 160; // Mitad de 320px
 
             notesNeutral.forEach((note, index) => {
                 const el = document.createElement('div');
                 el.className = 'note';
                 el.innerHTML = `<span>${note}</span><div class="degree-badge">Raíz</div>`;
                 
-                // Matemáticas exactas para evitar fallos en móviles
-                const angle = (index * 30) - 90; 
+                // Matemáticas exactas para posicionamiento circular uniforme sin mover hacia el centro
+                const angle = (index * 30) - 90; // Cada nota a 30 grados, C arriba a -90
                 const radian = angle * (Math.PI / 180);
                 
+                // Coordenadas absolutas fijas
                 const finalX = centerX + (Math.cos(radian) * radius) - 25; // 25 es la mitad de 50px
                 const finalY = centerY + (Math.sin(radian) * radius) - 25;
 
@@ -271,10 +285,14 @@
             const val = currentStudyValue;
             const keyData = keySignatures[val];
             
+            // Texto descriptivo
             let accText = val == 0 ? "0 alteraciones" : (val > 0 ? `${val} Sostenidos (#)` : `${Math.abs(val)} Bemoles (b)`);
             studyKeyName.innerText = `${keyData.rootObj} (${accText})`;
             studyNotesList.innerText = `Notas: ${keyData.notes.join(' - ')}`;
 
+            // Matemáticas de escala mayor en el Círculo de Quintas:
+            // Siempre son 7 notas consecutivas. Empiezan un paso a la izquierda de la tónica (subdominante)
+            // y terminan 5 pasos a la derecha (séptima mayor).
             const rootIdx = keyData.rootIdx;
             let scaleIndices = [];
             for (let i = -1; i <= 5; i++) {
@@ -282,14 +300,14 @@
                 scaleIndices.push(idx);
             }
 
-            // Apagar todas
+            // Apagar todas las notas, mantener posición fija
             document.querySelectorAll('.note').forEach(el => {
                 el.classList.add('dimmed');
                 el.classList.remove('highlight', 'quiz-selected', 'quiz-error');
                 el.querySelector('.degree-badge').style.display = 'none';
             });
 
-            // Encender la escala
+            // Encender el bloque de 7 notas consecutivas de la escala diatónica
             scaleIndices.forEach(idx => {
                 const el = document.getElementById(`note-${idx}`);
                 el.classList.remove('dimmed');
@@ -305,6 +323,7 @@
         btnStartQuiz.addEventListener('click', startNewQuiz);
 
         function startNewQuiz() {
+            // Generar un número aleatorio entre -6 y +6
             let randomAcc = Math.floor(Math.random() * 13) - 6; 
             quizTargetAccidentals = randomAcc.toString();
             quizSelectedIndices = [];
@@ -314,31 +333,35 @@
             
             quizQuestion.innerText = `Selecciona las 7 notas de la escala con:\n${accText}`;
             quizFeedback.innerText = "";
+            quizFeedback.style.color = "white";
             btnStartQuiz.innerText = "Saltar / Nuevo Reto";
 
+            // Limpiar círculo para el reto, mantener notas visibles pero tenues
             document.querySelectorAll('.note').forEach(el => {
-                el.className = 'note dimmed'; // Reiniciar visualmente
+                el.className = 'note dimmed'; // Reiniciar visualmente sin mover de posición
                 el.querySelector('.degree-badge').style.display = 'none';
             });
         }
 
         function handleNoteClick(index) {
-            if (mode === 'study') return; 
-            if (quizTargetAccidentals === null) return; 
+            if (mode === 'study') return; // En estudio, el círculo es visual
+            if (quizTargetAccidentals === null) return; // Si no hay quiz activo
 
             const el = document.getElementById(`note-${index}`);
             
+            // Alternar selección en Modo Quiz
             if (quizSelectedIndices.includes(index)) {
                 quizSelectedIndices = quizSelectedIndices.filter(i => i !== index);
                 el.classList.remove('quiz-selected');
                 el.classList.add('dimmed');
             } else {
-                if (quizSelectedIndices.length >= 7) return; 
+                if (quizSelectedIndices.length >= 7) return; // Solo permite 7 notas
                 quizSelectedIndices.push(index);
                 el.classList.remove('dimmed');
                 el.classList.add('quiz-selected');
             }
 
+            // Si seleccionó 7, validar automáticamente
             if (quizSelectedIndices.length === 7) {
                 checkQuizAnswer();
             } else {
@@ -354,24 +377,26 @@
                 correctIndices.push((rootIdx + i + 12) % 12);
             }
 
+            // Comprobar si los arrays tienen los mismos elementos
             let isCorrect = quizSelectedIndices.every(val => correctIndices.includes(val));
 
             if (isCorrect) {
                 quizFeedback.innerText = "¡Excelente! Has encontrado la escala correctamente. 🎉";
-                quizFeedback.style.color = "#4CAF50"; // Verde
-                
+                quizFeedback.style.color = var(--highlight);
+                // Iluminar todo en verde brillante
                 quizSelectedIndices.forEach(idx => {
                     document.getElementById(`note-${idx}`).classList.remove('quiz-selected');
                     document.getElementById(`note-${idx}`).classList.add('highlight');
                     
+                    // Mostrar badge en la tónica correcta
                     if(idx === rootIdx) {
                         document.getElementById(`note-${idx}`).querySelector('.degree-badge').style.display = 'block';
                     }
                 });
             } else {
                 quizFeedback.innerText = "Hay un error en las notas seleccionadas. Corrige tu selección.";
-                quizFeedback.style.color = "#E02341"; // Rojo
-                
+                quizFeedback.style.color = var(--error);
+                // Marcar en rojo brevemente para dar feedback de error
                 quizSelectedIndices.forEach(idx => {
                     document.getElementById(`note-${idx}`).classList.add('quiz-error');
                     setTimeout(() => document.getElementById(`note-${idx}`).classList.remove('quiz-error'), 800);
@@ -379,14 +404,14 @@
             }
         }
 
-        // --- CAMBIO DE PESTAÑAS ---
+        // --- NAVEGACIÓN ENTRE PESTAÑAS ---
         tabStudy.addEventListener('click', () => {
             mode = 'study';
             tabStudy.classList.add('active');
             tabQuiz.classList.remove('active');
             panelStudy.style.display = 'block';
             panelQuiz.style.display = 'none';
-            quizTargetAccidentals = null; 
+            quizTargetAccidentals = null; // Cancelar quiz si se cambia de pestaña
             updateStudyMode();
         });
 
@@ -396,13 +421,15 @@
             tabStudy.classList.remove('active');
             panelQuiz.style.display = 'block';
             panelStudy.style.display = 'none';
+            // Limpiar círculo para el quiz, mantener visible
             document.querySelectorAll('.note').forEach(el => el.className = 'note');
             quizQuestion.innerText = "Presiona 'Iniciar' para recibir un reto.";
             quizFeedback.innerText = "";
+            quizFeedback.style.color = "white";
             btnStartQuiz.innerText = "Iniciar Reto";
         });
 
-        // Iniciar
+        // Iniciar la aplicación
         initCircle();
     </script>
 </body>

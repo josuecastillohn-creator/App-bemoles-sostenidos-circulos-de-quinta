@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudio de Escalas y Armaduras</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --highlight: #4CAF50;
+            --error: #E02341;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        h1 { text-align: center; font-weight: 300; margin-bottom: 10px; }
+        
+        /* Pestañas de Navegación */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab-btn {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: #fff;
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* Controles de Estudio */
+        .study-controls {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid #333;
+            margin-bottom: 30px;
+        }
+
+        .slider-container {
+            margin: 20px 0;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Panel de Quiz */
+        .quiz-controls {
+            background: #2a1a3a;
+            padding: 20px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid #5a3a7a;
+            margin-bottom: 30px;
+            display: none; /* Oculto por defecto */
+        }
+
+        .quiz-btn {
+            background-color: #8A2BE2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        /* El Círculo */
+        .circle-wrapper {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            border: 2px dashed #444;
+            margin: 20px 0;
+        }
+
+        .note {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            background-color: #333;
+            border: 2px solid transparent;
+            left: 50%;
+            top: 50%;
+            margin-left: -25px;
+            margin-top: -25px;
+            transform: rotate(var(--angle)) translateY(-150px) rotate(calc(var(--angle) * -1));
+            transition: all 0.2s ease;
+        }
+
+        /* Estados visuales de las notas */
+        .note.dimmed { opacity: 0.2; }
+        .note.highlight {
+            background-color: var(--highlight);
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.6);
+            opacity: 1;
+        }
+        .note.quiz-selected {
+            background-color: #2196F3;
+            box-shadow: 0 0 15px rgba(33, 150, 243, 0.6);
+            opacity: 1;
+        }
+        .note.quiz-error {
+            background-color: var(--error);
+            box-shadow: 0 0 15px rgba(224, 35, 65, 0.6);
+            opacity: 1;
+        }
+
+        /* Etiquetas para saber cuál es la Tónica (Grado I) */
+        .degree-badge {
+            position: absolute;
+            bottom: -10px;
+            background: #fff;
+            color: #000;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: none;
+        }
+        .note.highlight .degree-badge { display: block; }
+
+        .info-text { font-size: 20px; font-weight: bold; margin: 10px 0; color: var(--highlight); }
+
+    </style>
+</head>
+<body>
+
+    <h1>Memorización de Escalas</h1>
+    
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-study">Modo Estudio</button>
+        <button class="tab-btn" id="tab-quiz">Modo Práctica</button>
+    </div>
+
+    <div class="study-controls" id="panel-study">
+        <p>Desliza para cambiar la armadura de clave:</p>
+        <div class="slider-container">
+            <input type="range" id="accidental-slider" min="-7" max="7" value="0">
+        </div>
+        <div class="info-text" id="study-key-name">Do Mayor (0 alteraciones)</div>
+        <p id="study-notes-list" style="color:#aaa; font-size:14px;"></p>
+    </div>
+
+    <div class="quiz-controls" id="panel-quiz">
+        <h3 style="margin:0 0 10px 0; color:#fff;">Pon a prueba tu memoria</h3>
+        <p id="quiz-question" style="font-size:18px;">Presiona 'Iniciar' para recibir un reto.</p>
+        <button class="quiz-btn" id="btn-start-quiz">Iniciar Reto</button>
+        <p id="quiz-feedback" style="margin-top:15px; font-weight:bold;"></p>
+    </div>
+
+    <div class="circle-wrapper" id="circle">
+        </div>
+
+    <script>
+        // --- DATOS DEL CÍRCULO ---
+        // Índices: 0=C, 1=G, 2=D, 3=A, 4=E, 5=B, 6=Gb/F#, 7=Db, 8=Ab, 9=Eb, 10=Bb, 11=F
+        const notesNeutral = ['C', 'G', 'D', 'A', 'E', 'B', 'F#/Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
+        
+        // Base de datos de armaduras: De -7 (Bemoles) a +7 (Sostenidos)
+        const keySignatures = {
+            "-7": { rootObj: "Cb Mayor", rootIdx: 5, notes: ["Cb", "Db", "Eb", "Fb", "Gb", "Ab", "Bb"] },
+            "-6": { rootObj: "Gb Mayor", rootIdx: 6, notes: ["Gb", "Ab", "Bb", "Cb", "Db", "Eb", "F"] },
+            "-5": { rootObj: "Db Mayor", rootIdx: 7, notes: ["Db", "Eb", "F", "Gb", "Ab", "Bb", "C"] },
+            "-4": { rootObj: "Ab Mayor", rootIdx: 8, notes: ["Ab", "Bb", "C", "Db", "Eb", "F", "G"] },
+            "-3": { rootObj: "Eb Mayor", rootIdx: 9, notes: ["Eb", "F", "G", "Ab", "Bb", "C", "D"] },
+            "-2": { rootObj: "Bb Mayor", rootIdx: 10, notes: ["Bb", "C", "D", "Eb", "F", "G", "A"] },
+            "-1": { rootObj: "F Mayor",  rootIdx: 11, notes: ["F", "G", "A", "Bb", "C", "D", "E"] },
+             "0": { rootObj: "C Mayor",  rootIdx: 0,  notes: ["C", "D", "E", "F", "G", "A", "B"] },
+             "1": { rootObj: "G Mayor",  rootIdx: 1,  notes: ["G", "A", "B", "C", "D", "E", "F#"] },
+             "2": { rootObj: "D Mayor",  rootIdx: 2,  notes: ["D", "E", "F#", "G", "A", "B", "C#"] },
+             "3": { rootObj: "A Mayor",  rootIdx: 3,  notes: ["A", "B", "C#", "D", "E", "F#", "G#"] },
+             "4": { rootObj: "E Mayor",  rootIdx: 4,  notes: ["E", "F#", "G#", "A", "B", "C#", "D#"] },
+             "5": { rootObj: "B Mayor",  rootIdx: 5,  notes: ["B", "C#", "D#", "E", "F#", "G#", "A#"] },
+             "6": { rootObj: "F# Mayor", rootIdx: 6,  notes: ["F#", "G#", "A#", "B", "C#", "D#", "E#"] },
+             "7": { rootObj: "C# Mayor", rootIdx: 7,  notes: ["C#", "D#", "E#", "F#", "G#", "A#", "B#"] }
+        };
+
+        // --- ESTADO ---
+        let mode = 'study'; // 'study' o 'quiz'
+        let currentStudyValue = "0";
+        let quizTargetAccidentals = null; // El reto actual (ej. "3")
+        let quizSelectedIndices = []; // Las notas que el usuario ha tocado en el quiz
+
+        // --- DOM ---
+        const circleContainer = document.getElementById('circle');
+        const slider = document.getElementById('accidental-slider');
+        const studyKeyName = document.getElementById('study-key-name');

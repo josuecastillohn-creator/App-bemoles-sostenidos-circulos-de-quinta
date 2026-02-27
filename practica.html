@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudio de Escalas y Armaduras</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --highlight: #4CAF50;
+            --error: #E02341;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        h1 { text-align: center; font-weight: 300; margin-bottom: 10px; }
+        
+        /* Pestañas de Navegación */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab-btn {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: #fff;
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* Controles de Estudio */
+        .study-controls {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid #333;
+            margin-bottom: 30px;
+            box-sizing: border-box;
+        }
+
+        .slider-container {
+            margin: 20px 0;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Panel de Quiz */
+        .quiz-controls {
+            background: #2a1a3a;
+            padding: 20px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid #5a3a7a;
+            margin-bottom: 30px;
+            display: none;
+            box-sizing: border-box;
+        }
+
+        .quiz-btn {
+            background-color: #8A2BE2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        /* El Círculo */
+        .circle-wrapper {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            border: 2px dashed #444;
+            margin: 20px 0;
+        }
+
+        .note {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            background-color: #333;
+            border: 2px solid transparent;
+            transition: opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Estados visuales */
+        .note.dimmed { opacity: 0.25; }
+        .note.highlight {
+            background-color: var(--highlight);
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.6);
+            opacity: 1;
+        }
+        .note.quiz-selected {
+            background-color: #2196F3;
+            box-shadow: 0 0 15px rgba(33, 150, 243, 0.6);
+            opacity: 1;
+        }
+        .note.quiz-error {
+            background-color: var(--error);
+            box-shadow: 0 0 15px rgba(224, 35, 65, 0.6);
+            opacity: 1;
+        }
+
+        .degree-badge {
+            position: absolute;
+            bottom: -12px;
+            background: #fff;
+            color: #000;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: none;
+            white-space: nowrap;
+        }
+        .note.highlight .degree-badge { display: block; }
+
+        .info-text { font-size: 20px; font-weight: bold; margin: 10px 0; color: var(--highlight); }
+
+    </style>
+</head>
+<body>
+
+    <h1>Memorización de Escalas</h1>
+    
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-study">Modo Estudio</button>
+        <button class="tab-btn" id="tab-quiz">Modo Práctica</button>
+    </div>
+
+    <div class="study-controls" id="panel-study">
+        <p>Desliza para cambiar la armadura de clave:</p>
+        <div class="slider-container">
+            <input type="range" id="accidental-slider" min="-7" max="7" value="0">
+        </div>
+        <div class="info-text" id="study-key-name">Do Mayor (0 alteraciones)</div>
+        <p id="study-notes-list" style="color:#aaa; font-size:15px; font-weight: bold;"></p>
+    </div>
+
+    <div class="quiz-controls" id="panel-quiz">
+        <h3 style="margin:0 0 10px 0; color:#fff;">Pon a prueba tu memoria</h3>
+        <p id="quiz-question" style="font-size:18px;">Presiona 'Iniciar' para recibir un reto.</p>
+        <button class="quiz-btn" id="btn-start-quiz">Iniciar Reto</button>
+        <p id="quiz-feedback" style="margin-top:15px; font-weight:bold;"></p>
+    </div>
+
+    <div class="circle-wrapper" id="circle">
+        </div>
+
+    <script>
+        // --- DATOS DEL CÍRCULO ---
+        const notesNeutral = ['C', 'G', 'D', 'A', 'E', 'B', 'F#/Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
+        
+        const keySignatures = {
+            "-7": { rootObj: "Cb Mayor", rootIdx: 5, notes: ["Cb", "Db", "Eb", "Fb", "Gb", "Ab", "Bb"] },
+            "-6": { rootObj: "Gb Mayor", rootIdx: 6, notes: ["Gb", "Ab", "Bb", "Cb", "Db", "Eb", "F"] },
+            "-5": { rootObj: "Db Mayor", rootIdx: 7, notes: ["Db", "Eb", "F", "Gb", "Ab", "Bb", "C"] },
+            "-4": { rootObj: "Ab Mayor", rootIdx: 8, notes: ["Ab", "Bb", "C", "Db", "Eb", "F", "G"] },
+            "-3": { rootObj: "Eb Mayor", rootIdx: 9, notes: ["Eb", "F", "G", "Ab", "Bb", "C", "D"] },
+            "-2": { rootObj: "Bb Mayor", rootIdx: 10, notes: ["Bb", "C", "D", "Eb", "F", "G", "A"] },
+            "-1": { rootObj: "F Mayor",  rootIdx: 11, notes: ["F", "G", "A", "Bb", "C", "D", "E"] },
+             "0": { rootObj: "C Mayor",  rootIdx: 0,  notes: ["C", "D", "E", "F", "G", "A", "B"] },
+             "1": { rootObj: "G Mayor",  rootIdx: 1,  notes: ["G", "A", "B", "C", "D", "E", "F#"] },
+             "2": { rootObj: "D Mayor",  rootIdx: 2,  notes: ["D", "E", "F#", "G", "A", "B", "C#"] },
+             "3": { rootObj: "A Mayor",  rootIdx: 3,  notes: ["A", "B", "C#", "D", "E", "F#", "G#"] },
+             "4": { rootObj: "E Mayor",  rootIdx: 4,  notes: ["E", "F#", "G#", "A", "B", "C#", "D#"] },
+             "5": { rootObj: "B Mayor",  rootIdx: 5,  notes: ["B", "C#", "D#", "E", "F#", "G#", "A#"] },
+             "6": { rootObj: "F# Mayor", rootIdx: 6,  notes: ["F#", "G#", "A#", "B", "C#", "D#", "E#"] },
+             "7": { rootObj: "C# Mayor", rootIdx: 7,  notes: ["C#", "D#", "E#", "F#", "G#", "A#", "B#"] }
+        };
+
+        // --- ESTADO ---
+        let mode = 'study'; 
+        let currentStudyValue = "0";
+        let quizTargetAccidentals = null; 
+        let quizSelectedIndices = []; 
+
+        // --- DOM ---
+        const circleContainer = document.getElementById('circle');
+        const slider = document.getElementById('accidental-slider');
+        const studyKeyName = document.getElementById('study-key-name');
+        const studyNotesList = document.getElementById('study-notes-list');
+        const tabStudy = document.getElementById('tab-study');
+        const tabQuiz = document.getElementById('tab-quiz');
+        const panelStudy = document.getElementById('panel-study');
+        const panelQuiz = document.getElementById('panel-quiz');
+        const quizQuestion = document.getElementById('quiz-question');
+        const quizFeedback = document.getElementById('quiz-feedback');
+        const btnStartQuiz = document.getElementById('btn-start-quiz');
+
+        // --- INICIALIZAR CÍRCULO CON POSICIONES ABSOLUTAS ---
+        function initCircle() {
+            circleContainer.innerHTML = '';
+            const radius = 135; 
+            const centerX = 160; 
+            const centerY = 160; 
+
+            notesNeutral.forEach((note, index) => {
+                const el = document.createElement('div');
+                el.className = 'note';
+                el.innerHTML = `<span>${note}</span><div class="degree-badge">Raíz</div>`;
+                
+                // Matemáticas exactas para evitar fallos en móviles
+                const angle = (index * 30) - 90; 
+                const radian = angle * (Math.PI / 180);
+                
+                const finalX = centerX + (Math.cos(radian) * radius) - 25; // 25 es la mitad de 50px
+                const finalY = centerY + (Math.sin(radian) * radius) - 25;
+
+                el.style.left = `${finalX}px`;
+                el.style.top = `${finalY}px`;
+                el.id = `note-${index}`;
+
+                el.addEventListener('click', () => handleNoteClick(index));
+                circleContainer.appendChild(el);
+            });
+            updateStudyMode();
+        }
+
+        // --- LÓGICA MODO ESTUDIO ---
+        slider.addEventListener('input', (e) => {
+            currentStudyValue = e.target.value;
+            updateStudyMode();
+        });
+
+        function updateStudyMode() {
+            if (mode !== 'study') return;
+            
+            const val = currentStudyValue;
+            const keyData = keySignatures[val];
+            
+            let accText = val == 0 ? "0 alteraciones" : (val > 0 ? `${val} Sostenidos (#)` : `${Math.abs(val)} Bemoles (b)`);
+            studyKeyName.innerText = `${keyData.rootObj} (${accText})`;
+            studyNotesList.innerText = `Notas: ${keyData.notes.join(' - ')}`;
+
+            const rootIdx = keyData.rootIdx;
+            let scaleIndices = [];
+            for (let i = -1; i <= 5; i++) {
+                let idx = (rootIdx + i + 12) % 12;
+                scaleIndices.push(idx);
+            }
+
+            // Apagar todas
+            document.querySelectorAll('.note').forEach(el => {
+                el.classList.add('dimmed');
+                el.classList.remove('highlight', 'quiz-selected', 'quiz-error');
+                el.querySelector('.degree-badge').style.display = 'none';
+            });
+
+            // Encender la escala
+            scaleIndices.forEach(idx => {
+                const el = document.getElementById(`note-${idx}`);
+                el.classList.remove('dimmed');
+                el.classList.add('highlight');
+                
+                if (idx === rootIdx) {
+                    el.querySelector('.degree-badge').style.display = 'block';
+                }
+            });
+        }
+
+        // --- LÓGICA MODO QUIZ ---
+        btnStartQuiz.addEventListener('click', startNewQuiz);
+
+        function startNewQuiz() {
+            let randomAcc = Math.floor(Math.random() * 13) - 6; 
+            quizTargetAccidentals = randomAcc.toString();
+            quizSelectedIndices = [];
+            
+            let accText = randomAcc == 0 ? "0 alteraciones (Do Mayor)" : 
+                          (randomAcc > 0 ? `${randomAcc} Sostenidos (#)` : `${Math.abs(randomAcc)} Bemoles (b)`);
+            
+            quizQuestion.innerText = `Selecciona las 7 notas de la escala con:\n${accText}`;
+            quizFeedback.innerText = "";
+            btnStartQuiz.innerText = "Saltar / Nuevo Reto";
+
+            document.querySelectorAll('.note').forEach(el => {
+                el.className = 'note dimmed'; // Reiniciar visualmente
+                el.querySelector('.degree-badge').style.display = 'none';
+            });
+        }
+
+        function handleNoteClick(index) {
+            if (mode === 'study') return; 
+            if (quizTargetAccidentals === null) return; 
+
+            const el = document.getElementById(`note-${index}`);
+            
+            if (quizSelectedIndices.includes(index)) {
+                quizSelectedIndices = quizSelectedIndices.filter(i => i !== index);
+                el.classList.remove('quiz-selected');
+                el.classList.add('dimmed');
+            } else {
+                if (quizSelectedIndices.length >= 7) return; 
+                quizSelectedIndices.push(index);
+                el.classList.remove('dimmed');
+                el.classList.add('quiz-selected');
+            }
+
+            if (quizSelectedIndices.length === 7) {
+                checkQuizAnswer();
+            } else {
+                quizFeedback.innerText = `Has seleccionado ${quizSelectedIndices.length} de 7 notas.`;
+                quizFeedback.style.color = "#aaaaaa";
+            }
+        }
+
+        function checkQuizAnswer() {
+            const rootIdx = keySignatures[quizTargetAccidentals].rootIdx;
+            let correctIndices = [];
+            for (let i = -1; i <= 5; i++) {
+                correctIndices.push((rootIdx + i + 12) % 12);
+            }
+
+            let isCorrect = quizSelectedIndices.every(val => correctIndices.includes(val));
+
+            if (isCorrect) {
+                quizFeedback.innerText = "¡Excelente! Has encontrado la escala correctamente. 🎉";
+                quizFeedback.style.color = "#4CAF50"; // Verde
+                
+                quizSelectedIndices.forEach(idx => {
+                    document.getElementById(`note-${idx}`).classList.remove('quiz-selected');
+                    document.getElementById(`note-${idx}`).classList.add('highlight');
+                    
+                    if(idx === rootIdx) {
+                        document.getElementById(`note-${idx}`).querySelector('.degree-badge').style.display = 'block';
+                    }
+                });
+            } else {
+                quizFeedback.innerText = "Hay un error en las notas seleccionadas. Corrige tu selección.";
+                quizFeedback.style.color = "#E02341"; // Rojo
+                
+                quizSelectedIndices.forEach(idx => {
+                    document.getElementById(`note-${idx}`).classList.add('quiz-error');
+                    setTimeout(() => document.getElementById(`note-${idx}`).classList.remove('quiz-error'), 800);
+                });
+            }
+        }
+
+        // --- CAMBIO DE PESTAÑAS ---
+        tabStudy.addEventListener('click', () => {
+            mode = 'study';
+            tabStudy.classList.add('active');
+            tabQuiz.classList.remove('active');
+            panelStudy.style.display = 'block';
+            panelQuiz.style.display = 'none';
+            quizTargetAccidentals = null; 
+            updateStudyMode();
+        });
+
+        tabQuiz.addEventListener('click', () => {
+            mode = 'quiz';
+            tabQuiz.classList.add('active');
+            tabStudy.classList.remove('active');
+            panelQuiz.style.display = 'block';
+            panelStudy.style.display = 'none';
+            document.querySelectorAll('.note').forEach(el => el.className = 'note');
+            quizQuestion.innerText = "Presiona 'Iniciar' para recibir un reto.";
+            quizFeedback.innerText = "";
+            btnStartQuiz.innerText = "Iniciar Reto";
+        });
+
+        // Iniciar
+        initCircle();
+    </script>
+</body>
+</html>
+
